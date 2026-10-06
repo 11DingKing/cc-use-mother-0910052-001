@@ -60,3 +60,33 @@ class StockCandle(Base):
             "is_limit_down": bool(self.is_limit_down),
             "is_suspended": bool(self.is_suspended),
         }
+
+
+class StockCandleCoverage(Base):
+    """K线缓存覆盖区间。
+
+    语义：区间 [start_time, end_time] 内的数据已经完整向上游请求过
+    （包括上游明确返回空的情况），缓存中保存了上游当时提供的全部数据。
+    只有请求区间被覆盖区间的并集完全包含时，缓存才算命中。
+    """
+    __tablename__ = "stock_candle_coverage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_code = Column(String(20), nullable=False, index=True)
+    period = Column(String(10), nullable=False)
+    start_time = Column(DateTime, nullable=False)
+    end_time = Column(DateTime, nullable=False)
+    source = Column(String(20), nullable=True)  # 提供数据的数据源
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index('ix_coverage_code_period', 'stock_code', 'period'),
+    )
+
+    def __repr__(self):
+        return (
+            f"<StockCandleCoverage(code={self.stock_code}, period={self.period}, "
+            f"range=[{self.start_time}, {self.end_time}], source={self.source})>"
+        )

@@ -131,11 +131,12 @@ class AKShareFetcher(DataFetcher):
         """业务模块说明。"""
         import time
         max_retries = 3
-        
+        last_error = None
+
         for retry in range(max_retries):
             try:
                 logger.info(f"Fetching daily data for {code} (attempt {retry + 1}/{max_retries})")
-                
+
                 df = ak.stock_zh_a_hist(
                     symbol=code,
                     period="daily",
@@ -143,11 +144,11 @@ class AKShareFetcher(DataFetcher):
                     end_date=end_date.strftime("%Y%m%d"),
                     adjust="qfq",
                 )
-                
+
                 if df is None or df.empty:
                     logger.warning(f"No data returned for {code}")
                     return []
-                
+
                 candles = []
                 for _, row in df.iterrows():
                     try:
@@ -163,17 +164,22 @@ class AKShareFetcher(DataFetcher):
                     except (KeyError, ValueError) as e:
                         logger.warning(f"Skip invalid row: {e}")
                         continue
-                
+
                 logger.info(f"Successfully fetched {len(candles)} candles for {code}")
                 return candles
-                
+
             except Exception as e:
+                last_error = e
                 logger.error(f"Fetch daily error (attempt {retry + 1}): {e}")
                 if retry < max_retries - 1:
                     time.sleep(1)
                 continue
-        
-        return []
+
+        # 重试耗尽必须明确失败：返回空列表会被上层误判为"该区间无数据"
+        # 并记录覆盖区间，造成缓存污染。
+        raise RuntimeError(
+            f"Failed to fetch daily data for {code} after {max_retries} attempts: {last_error}"
+        )
     
     def _fetch_intraday(
         self,
@@ -228,7 +234,8 @@ class AKShareFetcher(DataFetcher):
                     continue
             
             return candles
-            
+
         except Exception as e:
+            # 明确失败而非返回空列表，避免被上层误判为"该区间无数据"
             logger.error(f"Fetch intraday error: {e}")
-            return []
+            raise
