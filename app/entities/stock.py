@@ -60,3 +60,34 @@ class StockCandle(Base):
             "is_limit_down": bool(self.is_limit_down),
             "is_suspended": bool(self.is_suspended),
         }
+
+
+class CacheCoverage(Base):
+    """已抓取区间覆盖记录。
+
+    语义：对 (stock_code, period)，[range_start, range_end] 闭区间内的
+    行情数据已经向上游请求过并持久化了完整应答（包括"该区间无数据"
+    这一确定结论）。只有请求区间被覆盖记录完整包含时，缓存才算命中。
+    """
+    __tablename__ = "cache_coverage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    stock_code = Column(String(20), nullable=False, index=True)
+    period = Column(String(10), nullable=False)
+    range_start = Column(DateTime, nullable=False)
+    range_end = Column(DateTime, nullable=False)
+    source = Column(String(20), nullable=True)       # 提供数据的数据源
+    candle_count = Column(Integer, default=0)        # 最近一次写入的K线数量（元信息）
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index('ix_cache_coverage_code_period', 'stock_code', 'period'),
+    )
+
+    def __repr__(self):
+        return (
+            f"<CacheCoverage(code={self.stock_code}, period={self.period}, "
+            f"range=[{self.range_start}, {self.range_end}], source={self.source})>"
+        )

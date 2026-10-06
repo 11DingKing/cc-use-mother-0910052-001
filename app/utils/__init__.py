@@ -8,6 +8,11 @@ from app.utils.validators import (
     validate_list_not_empty,
     parse_date,
 )
+from app.utils.coverage import (
+    merge_intervals,
+    compute_missing_ranges,
+    is_fully_covered,
+)
 
 __all__ = [
     "validate_stock_code",
@@ -16,4 +21,7 @@ __all__ = [
     "validate_positive_number",
     "validate_list_not_empty",
     "parse_date",
+    "merge_intervals",
+    "compute_missing_ranges",
+    "is_fully_covered",
 ]

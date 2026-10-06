@@ -131,11 +131,12 @@ class AKShareFetcher(DataFetcher):
         """业务模块说明。"""
         import time
         max_retries = 3
-        
+        last_error = None
+
         for retry in range(max_retries):
             try:
                 logger.info(f"Fetching daily data for {code} (attempt {retry + 1}/{max_retries})")
-                
+
                 df = ak.stock_zh_a_hist(
                     symbol=code,
                     period="daily",
@@ -143,11 +144,11 @@ class AKShareFetcher(DataFetcher):
                     end_date=end_date.strftime("%Y%m%d"),
                     adjust="qfq",
                 )
-                
+
                 if df is None or df.empty:
                     logger.warning(f"No data returned for {code}")
                     return []
-                
+
                 candles = []
                 for _, row in df.iterrows():
                     try:
@@ -163,17 +164,20 @@ class AKShareFetcher(DataFetcher):
                     except (KeyError, ValueError) as e:
                         logger.warning(f"Skip invalid row: {e}")
                         continue
-                
+
                 logger.info(f"Successfully fetched {len(candles)} candles for {code}")
                 return candles
-                
+
             except Exception as e:
+                last_error = e
                 logger.error(f"Fetch daily error (attempt {retry + 1}): {e}")
                 if retry < max_retries - 1:
                     time.sleep(1)
                 continue
-        
-        return []
+
+        # 重试耗尽：向上抛出最后一次异常，让本次抓取被标记为明确失败，
+        # 而不是返回空列表伪装成"该区间无数据"
+        raise last_error
     
     def _fetch_intraday(
         self,
@@ -228,7 +232,9 @@ class AKShareFetcher(DataFetcher):
                     continue
             
             return candles
-            
+
         except Exception as e:
+            # 向上抛出，由 fetch_candles 标记为明确失败并携带错误信息，
+            # 而不是返回空列表伪装成"该区间无数据"
             logger.error(f"Fetch intraday error: {e}")
-            return []
+            raise

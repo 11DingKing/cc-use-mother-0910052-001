@@ -25,9 +25,14 @@ def get_engine():
     """业务模块说明。"""
     global _engine
     if _engine is None:
+        # SQLite: check_same_thread=False 支持多线程会话；
+        # timeout 即 busy_timeout，并发写时等待而非立即报 database is locked。
         _engine = create_engine(
             DATABASE_URL,
-            connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {},
+            connect_args=(
+                {"check_same_thread": False, "timeout": 30}
+                if "sqlite" in DATABASE_URL else {}
+            ),
             echo=os.getenv("SQL_ECHO", "false").lower() == "true",
         )
     return _engine
